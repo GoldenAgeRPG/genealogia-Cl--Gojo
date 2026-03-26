@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gojō Ke - Árvore Genealógica</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Cinzel:wght@400;700&display=swap');
+
+        :root {
+            --accent:       #3b82f6;
+            --accent-bright:#60a5fa;
+            --accent-glow:  #93c5fd;
+            --bg-deep:      #020617;
+            --bg-card:      #0b1120;
+            --bg-card2:     #0f172a;
+            --border-dark:  #020617;
+            --text-main:    #e2e8f0;
+            --text-dim:     #94a3b8;
+            --text-label:   #60a5fa;
+            --text-value:   #dbeafe;
+            --main-border:  #1e3a8a;
+            --cousin-border:#0c2341;
+            --line-color:   #2563eb;
+            --shadow-glow:  rgba(59,130,246,0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-deep);
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(59,130,246,0.06) 0%, transparent 50%),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 40px,
+                    rgba(59,130,246,0.03) 40px,
+                    rgba(59,130,246,0.03) 41px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 40px,
+                    rgba(59,130,246,0.03) 40px,
+                    rgba(59,130,246,0.03) 41px
+                );
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            overflow: hidden;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            background: rgba(2, 6, 23, 0.97);
+            border-bottom: 2px solid var(--accent);
+            text-align: center;
+            padding: 18px 0 14px;
+            z-index: 1000;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 40px rgba(37,99,235,0.3);
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+        }
+
+        header h1 {
+            color: var(--accent-bright);
+            font-size: 40px;
+            letter-spacing: 10px;
+            margin: 0;
+            font-family: 'Noto Serif JP', serif;
+            text-shadow: 0 0 20px rgba(96,165,250,0.5), 0 0 40px rgba(59,130,246,0.3);
+        }
+
+        header h2 {
+            color: var(--text-dim);
+            font-size: 13px;
+            letter-spacing: 6px;
+            margin: 6px 0 0 0;
+            font-weight: 300;
+            text-transform: uppercase;
+            font-family: 'Cinzel', serif;
+        }
+
+        header .ornament {
+            display: block;
+            margin-top: 8px;
+            color: var(--accent);
+            font-size: 16px;
+            letter-spacing: 20px;
+        }
+
+        /* Scroll Container */
+        #scroll-container {
+            position: absolute;
+            top: 130px;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 130px);
+            overflow: auto;
+            padding: 60px 80px 100px;
+            cursor: grab;
+            display: flex;
+            justify-content: flex-start;
+            z-index: 2;
+        }
+
+        #scroll-container:active { cursor: grabbing; }
+
+        .tree {
+            width: max-content;
+            margin: 0 auto;
+            will-change: transform;
+            transform: translateZ(0);
+        }
+
+        /* Tree Lines */
+        .tree ul {
+            padding-top: 55px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            white-space: nowrap;
+        }
+
+        .tree li {
+            text-align: center;
+            list-style-type: none;
+            position: relative;
+            padding: 55px 18px 0 18px;
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .tree li::before, .tree li::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 50%;
+            border-top: 2px solid var(--line-color);
+            width: 50%;
+            height: 55px;
+            pointer-events: none;
+        }
+
+        .tree li::after {
+            right: auto;
+            left: 50%;
+            border-left: 2px solid var(--line-color);
+        }
+
+        .tree li:only-child::after,
+        .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+
+        .tree li:first-child::before,
+        .tree li:last-child::after { border: 0 none; }
+
+        .tree li:last-child::before {
+            border-right: 2px solid var(--line-color);
+        }
+
+        .tree ul ul::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%;
+            border-left: 2px solid var(--line-color);
+            width: 0; height: 55px;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        /* Couple */
+        .couple {
+            display: inline-flex;
+            gap: 36px;
+            position: relative;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .couple::after {
+            content: '✦';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--accent-bright);
+            font-size: 16px;
+            background: var(--bg-deep);
+            padding: 6px;
+            border-radius: 50%;
+            z-index: 5;
+            box-shadow: 0 0 15px rgba(59,130,246,0.6), 0 0 30px rgba(37,99,235,0.3);
+            border: 1px solid var(--accent);
+            pointer-events: none;
+        }
+
+        /* Cards */
+        .card {
+            width: 190px;
+            height: 290px;
+            background-color: var(--bg-card);
+            border: 6px solid var(--border-dark);
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.1);
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            backface-visibility: hidden;
+            display: inline-block;
+        }
+
+        /* Inner frame */
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border: 1px solid var(--accent);
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.4;
+        }
+
+        .card.main-char {
+            border-color: var(--main-border);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(59,130,246,0.25), 0 0 20px rgba(37,99,235,0.15);
+        }
+
+        .card.main-char::before {
+            border-color: var(--accent-bright);
+            opacity: 0.7;
+        }
+
+        .card.cousin-bride {
+            border-color: var(--cousin-border);
+        }
+
+        .card.cousin-bride::before {
+            border-color: #38bdf8;
+            opacity: 0.5;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 50px var(--shadow-glow), 0 0 0 1px var(--accent);
+        }
+
+        .card:hover::before { opacity: 1; }
+
+        .card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+            display: block;
+            background-color: #05091a;
+            filter: contrast(1.05) brightness(0.85) saturate(0.9);
+        }
+
+        .name-bar {
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(to bottom, var(--bg-card2), var(--bg-deep));
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent-glow);
+            letter-spacing: 1px;
+            border-top: 1px solid var(--accent);
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            padding: 0 8px;
+            font-family: 'Noto Serif JP', serif;
+            white-space: normal;
+            line-height: 1.3;
+        }
+
+        /* Slide Menu */
+        .slide-menu {
+            position: absolute;
+            bottom: -100%;
+            left: 0;
+            width: 100%;
+            height: calc(100% - 52px);
+            background: rgba(2, 6, 23, 0.97);
+            backdrop-filter: blur(10px);
+            transition: bottom 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 16px;
+            text-align: left;
+            z-index: 11;
+            border-bottom: 1px solid var(--accent);
+        }
+
+        .card.active .slide-menu { bottom: 52px; }
+
+        .slide-menu p {
+            font-size: 12px;
+            margin-bottom: 10px;
+            color: var(--text-dim);
+            line-height: 1.4;
+            white-space: normal;
+        }
+
+        .slide-menu p:last-child { margin-bottom: 0; }
+
+        .slide-menu span.label {
+            display: block;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-label);
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .slide-menu span.value {
+            font-weight: 500;
+            color: var(--text-value);
+            font-size: 13px;
+        }
+
+        /* Scrollbar */
+        #scroll-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        #scroll-container::-webkit-scrollbar-track { background: var(--bg-deep); }
+        #scroll-container::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>五条家</h1>
+    <h2>Gojō Ke — Árvore Genealógica</h2>
+    <span class="ornament">◆ ◆ ◆</span>
+</header>
+
+<div id="scroll-container">
+<div class="tree">
+<ul>
+  <li>
+    <div class="couple">
+      <div class="card main-char" onclick="this.classList.toggle('active')">
+        <img src="https://placehold.co/190x220/0b1120/3b82f6?text=Michizane" alt="Michizane">
+        <div class="slide-menu">
+          <p><span class="label">Nascimento</span><span class="value">845 d.C.</span></p>
+          <p><span class="label">Falecimento</span><span class="value">903 d.C.</span></p>
+          <p><span class="label">Técnica Inata</span><span class="value">Manipulação Divina</span></p>
+        </div>
+        <div class="name-bar">Michizane Sugawara G1</div>
+      </div>
+      <div class="card" onclick="this.classList.toggle('active')">
+        <img src="https://placehold.co/190x220/0b1120/475569?text=Matriarca" alt="Matriarca">
+        <div class="name-bar">Matriarca G1</div>
+      </div>
+    </div>
+
+    <ul>
+
+      <!-- ===== RAMO G2 LESTE ===== -->
+      <li>
+        <div class="couple">
+          <div class="card" onclick="this.classList.toggle('active')">
+            <img src="https://placehold.co/190x220/0b1120/475569?text=G2+Leste" alt="G2 Leste">
+            <div class="name-bar">Ancião Leste G2</div>
+          </div>
+          <div class="card" onclick="this.classList.toggle('active')">
+            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+            <div class="name-bar">Consorte Leste</div>
+          </div>
+        </div>
+        <ul>
+          <li>
+            <div class="couple">
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=G3+L1" alt="G3 L1">
+                <div class="name-bar">Membro G3 L1</div>
+              </div>
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                <div class="name-bar">Consorte</div>
+              </div>
+            </div>
+            <ul>
+              <li>
+                <div class="couple">
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=G4+L1" alt="G4 L1">
+                    <div class="name-bar">Colateral L1 G4</div>
+                  </div>
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                    <div class="name-bar">Consorte</div>
+                  </div>
+                </div>
+                <ul>
+                  <li>
+                    <div class="couple">
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=G5+L1" alt="G5 L1">
+                        <div class="name-bar">Casa Menor L1</div>
+                      </div>
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                        <div class="name-bar">Consorte</div>
+                      </div>
+                    </div>
+                    <ul>
+                      <li>
+                        <div class="couple">
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=G6+L1" alt="G6 L1">
+                            <div class="name-bar">Herdeiro G6 L1</div>
+                          </div>
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                            <div class="name-bar">Consorte</div>
+                          </div>
+                        </div>
+                        <ul>
+                          <li>
+                            <div class="couple">
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=G7+L1" alt="G7 L1">
+                                <div class="name-bar">Servo G7 L1</div>
+                              </div>
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                <div class="name-bar">Consorte</div>
+                              </div>
+                            </div>
+                            <ul>
+                              <li><div class="card"><div class="name-bar">Linha G8 Morta</div></div></li>
+                              <li><div class="card"><div class="name-bar">Linha G8 Morta</div></div></li>
+                            </ul>
+                          </li>
+                          <li>
+                            <div class="couple">
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=G7+L2" alt="G7 L2">
+                                <div class="name-bar">Membro G7 L2</div>
+                              </div>
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                <div class="name-bar">Consorte</div>
+                              </div>
+                            </div>
+                            <ul>
+                              <li><div class="card"><div class="name-bar">Linha G8 Morta</div></div></li>
+                              <li><div class="card"><div class="name-bar">Linha G8 Morta</div></div></li>
+                            </ul>
+                          </li>
+                        </ul>
+                      </li>
+                      <li>
+                        <div class="couple">
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=G6+L2" alt="G6 L2">
+                            <div class="name-bar">Membro G6 L2</div>
+                          </div>
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                            <div class="name-bar">Consorte</div>
+                          </div>
+                        </div>
+                        <ul>
+                          <li><div class="card"><div class="name-bar">Fim G7 Linhagem</div></div></li>
+                          <li><div class="card"><div class="name-bar">Fim G7 Linhagem</div></div></li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    <div class="couple">
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=G5+L2" alt="G5 L2">
+                        <div class="name-bar">Membro G5 L2</div>
+                      </div>
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                        <div class="name-bar">Consorte</div>
+                      </div>
+                    </div>
+                    <ul>
+                      <li><div class="card"><div class="name-bar">Exilado G6</div></div></li>
+                      <li><div class="card"><div class="name-bar">Morte G6</div></div></li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <div class="couple">
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=G4+L2" alt="G4 L2">
+                    <div class="name-bar">Guerreiro G4 L2</div>
+                  </div>
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                    <div class="name-bar">Consorte</div>
+                  </div>
+                </div>
+                <ul>
+                  <li><div class="card"><div class="name-bar">Morte G5 Batalha</div></div></li>
+                  <li><div class="card"><div class="name-bar">Morte G5 Batalha</div></div></li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <div class="couple">
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=G3+L2" alt="G3 L2">
+                <div class="name-bar">Sábio G3 L2</div>
+              </div>
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                <div class="name-bar">Consorte</div>
+              </div>
+            </div>
+            <ul>
+              <li><div class="card"><div class="name-bar">Monge G4</div></div></li>
+              <li><div class="card"><div class="name-bar">Desaparecido G4</div></div></li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+
+      <!-- ===== RAMO G2 PRINCIPAL ===== -->
+      <li>
+        <div class="couple">
+          <div class="card" onclick="this.classList.toggle('active')">
+            <img src="https://placehold.co/190x220/0b1120/475569?text=G2+Principal" alt="G2 Principal">
+            <div class="name-bar">Patriarca G2</div>
+          </div>
+          <div class="card" onclick="this.classList.toggle('active')">
+            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+            <div class="name-bar">Matriarca G2</div>
+          </div>
+        </div>
+        <ul>
+          <li>
+            <div class="couple">
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=G3+Colateral" alt="G3 Colateral">
+                <div class="name-bar">Tio G3 Principal</div>
+              </div>
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                <div class="name-bar">Consorte</div>
+              </div>
+            </div>
+            <ul>
+              <li><div class="card"><div class="name-bar">Linha G4 Perdida</div></div></li>
+              <li><div class="card"><div class="name-bar">Linha G4 Perdida</div></div></li>
+            </ul>
+          </li>
+          <li>
+            <div class="couple">
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=G3+Principal" alt="G3 Principal">
+                <div class="name-bar">Patriarca G3 Principal</div>
+              </div>
+              <div class="card" onclick="this.classList.toggle('active')">
+                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                <div class="name-bar">Matriarca G3</div>
+              </div>
+            </div>
+            <ul>
+              <li>
+                <div class="couple">
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=G4+Afastado" alt="G4 Afastado">
+                    <div class="name-bar">Primo Afastado G4</div>
+                  </div>
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                    <div class="name-bar">Consorte</div>
+                  </div>
+                </div>
+                <ul>
+                  <li><div class="card"><div class="name-bar">Sem Registros G5</div></div></li>
+                  <li><div class="card"><div class="name-bar">Sem Registros G5</div></div></li>
+                </ul>
+              </li>
+              <li>
+                <div class="couple">
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=G4+Principal" alt="G4 Principal">
+                    <div class="name-bar">Patriarca G4 Principal</div>
+                  </div>
+                  <div class="card" onclick="this.classList.toggle('active')">
+                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                    <div class="name-bar">Matriarca G4</div>
+                  </div>
+                </div>
+                <ul>
+                  <li>
+                    <div class="couple">
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=G5+Guarda" alt="G5 Guarda">
+                        <div class="name-bar">Guardião Templo G5</div>
+                      </div>
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                        <div class="name-bar">Consorte</div>
+                      </div>
+                    </div>
+                    <ul>
+                      <li><div class="card"><div class="name-bar">Sacerdote G6</div></div></li>
+                      <li><div class="card"><div class="name-bar">Sacerdotisa G6</div></div></li>
+                    </ul>
+                  </li>
+                  <li>
+                    <div class="couple">
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=G5+Principal" alt="G5 Principal">
+                        <div class="name-bar">Patriarca G5 Principal</div>
+                      </div>
+                      <div class="card" onclick="this.classList.toggle('active')">
+                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                        <div class="name-bar">Matriarca G5</div>
+                      </div>
+                    </div>
+                    <ul>
+
+                      <!-- === RAMO NORTE (G6 Norte) === -->
+                      <li>
+                        <div class="couple">
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=G6+Norte" alt="G6 Norte">
+                            <div class="name-bar">Senhor do Norte G6</div>
+                          </div>
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                            <div class="name-bar">Consorte</div>
+                          </div>
+                        </div>
+                        <ul>
+                          <li>
+                            <div class="couple">
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=G7+Norte" alt="G7 Norte">
+                                <div class="name-bar">Casa Norte G7</div>
+                              </div>
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                <div class="name-bar">Consorte</div>
+                              </div>
+                            </div>
+                            <ul>
+                              <li>
+                                <div class="couple">
+                                  <div class="card" onclick="this.classList.toggle('active')">
+                                    <img src="https://placehold.co/190x220/0b1120/475569?text=G8+Norte" alt="G8 Norte">
+                                    <div class="name-bar">Casa Norte G8</div>
+                                  </div>
+                                  <div class="card" onclick="this.classList.toggle('active')">
+                                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                    <div class="name-bar">Consorte</div>
+                                  </div>
+                                </div>
+                                <ul>
+                                  <li>
+                                    <div class="couple">
+                                      <div class="card" onclick="this.classList.toggle('active')">
+                                        <img src="https://placehold.co/190x220/0b1120/475569?text=G9+Norte" alt="G9 Norte">
+                                        <div class="name-bar">Casa Norte G9</div>
+                                      </div>
+                                      <div class="card" onclick="this.classList.toggle('active')">
+                                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                        <div class="name-bar">Consorte</div>
+                                      </div>
+                                    </div>
+                                    <ul>
+                                      <li>
+                                        <div class="couple">
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=G10+Avô" alt="G10 Avô">
+                                            <div class="name-bar">Avô Hiromi G10</div>
+                                          </div>
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=G10+Avó" alt="G10 Avó">
+                                            <div class="name-bar">Avó Hiromi G10</div>
+                                          </div>
+                                        </div>
+                                        <ul>
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Ryo" alt="Ryo">
+                                                <div class="name-bar">Ryo (Pai G11)</div>
+                                              </div>
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Asuka" alt="Asuka">
+                                                <div class="name-bar">Asuka (Mãe G11)</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li>
+                                                <div class="card cousin-bride" onclick="this.classList.toggle('active')">
+                                                  <img src="https://placehold.co/190x220/0b1120/0c2341?text=Hiromi" alt="Hiromi">
+                                                  <div class="slide-menu">
+                                                    <p><span class="label">Destino</span><span class="value">Casou-se com primo Kousuke — Ramo Principal Central (G12*)</span></p>
+                                                  </div>
+                                                  <div class="name-bar">Hiromi (→ G12 Principal)</div>
+                                                </div>
+                                              </li>
+                                              <li>
+                                                <div class="couple">
+                                                  <div class="card" onclick="this.classList.toggle('active')">
+                                                    <img src="https://placehold.co/190x220/0b1120/475569?text=Irmao" alt="Irmão">
+                                                    <div class="name-bar">Irmão G12 Norte</div>
+                                                  </div>
+                                                  <div class="card" onclick="this.classList.toggle('active')">
+                                                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                                    <div class="name-bar">Consorte</div>
+                                                  </div>
+                                                </div>
+                                                <ul>
+                                                  <li><div class="card"><div class="name-bar">Sobrinho G13</div></div></li>
+                                                  <li><div class="card"><div class="name-bar">Sobrinha G13</div></div></li>
+                                                </ul>
+                                              </li>
+                                            </ul>
+                                          </li>
+                                        </ul>
+                                      </li>
+                                      <li>
+                                        <div class="couple">
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=G10+Colateral" alt="G10 Colateral">
+                                            <div class="name-bar">Tio-Avô G10 Norte</div>
+                                          </div>
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                            <div class="name-bar">Consorte</div>
+                                          </div>
+                                        </div>
+                                        <ul>
+                                          <li><div class="card"><div class="name-bar">Primo Distante</div></div></li>
+                                          <li><div class="card"><div class="name-bar">Prima Distante</div></div></li>
+                                        </ul>
+                                      </li>
+                                    </ul>
+                                  </li>
+                                </ul>
+                              </li>
+                            </ul>
+                          </li>
+                        </ul>
+                      </li>
+
+                      <!-- === RAMO PRINCIPAL (G6 Principal) === -->
+                      <li>
+                        <div class="couple">
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=G6+Principal" alt="G6 Principal">
+                            <div class="name-bar">Patriarca G6 Principal</div>
+                          </div>
+                          <div class="card" onclick="this.classList.toggle('active')">
+                            <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                            <div class="name-bar">Matriarca G6</div>
+                          </div>
+                        </div>
+                        <ul>
+                          <li>
+                            <div class="couple">
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=G7+Membro" alt="G7 Membro">
+                                <div class="name-bar">Membro Central G7</div>
+                              </div>
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                <div class="name-bar">Consorte</div>
+                              </div>
+                            </div>
+                            <ul>
+                              <li><div class="card"><div class="name-bar">Deserdado G8</div></div></li>
+                              <li><div class="card"><div class="name-bar">Deserdado G8</div></div></li>
+                            </ul>
+                          </li>
+                          <li>
+                            <div class="couple">
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=G7+Principal" alt="G7 Principal">
+                                <div class="name-bar">Patriarca G7 Principal</div>
+                              </div>
+                              <div class="card" onclick="this.classList.toggle('active')">
+                                <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                <div class="name-bar">Matriarca G7</div>
+                              </div>
+                            </div>
+                            <ul>
+                              <li>
+                                <div class="couple">
+                                  <div class="card" onclick="this.classList.toggle('active')">
+                                    <img src="https://placehold.co/190x220/0b1120/475569?text=G8+Comandante" alt="G8 Comandante">
+                                    <div class="name-bar">Comandante G8 Central</div>
+                                  </div>
+                                  <div class="card" onclick="this.classList.toggle('active')">
+                                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                    <div class="name-bar">Consorte</div>
+                                  </div>
+                                </div>
+                                <ul>
+                                  <li><div class="card"><div class="name-bar">Morte G9 Batalha</div></div></li>
+                                  <li><div class="card"><div class="name-bar">Morte G9 Batalha</div></div></li>
+                                </ul>
+                              </li>
+                              <li>
+                                <div class="couple">
+                                  <div class="card" onclick="this.classList.toggle('active')">
+                                    <img src="https://placehold.co/190x220/0b1120/475569?text=G8+Principal" alt="G8 Principal">
+                                    <div class="name-bar">Patriarca G8 Principal</div>
+                                  </div>
+                                  <div class="card" onclick="this.classList.toggle('active')">
+                                    <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                    <div class="name-bar">Matriarca G8</div>
+                                  </div>
+                                </div>
+                                <ul>
+                                  <li>
+                                    <div class="couple">
+                                      <div class="card" onclick="this.classList.toggle('active')">
+                                        <img src="https://placehold.co/190x220/0b1120/475569?text=G9+Erudito" alt="G9 Erudito">
+                                        <div class="name-bar">Erudito G9 Central</div>
+                                      </div>
+                                      <div class="card" onclick="this.classList.toggle('active')">
+                                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                        <div class="name-bar">Consorte</div>
+                                      </div>
+                                    </div>
+                                    <ul>
+                                      <li><div class="card"><div class="name-bar">Arquivista G10</div></div></li>
+                                      <li><div class="card"><div class="name-bar">Arquivista G10</div></div></li>
+                                    </ul>
+                                  </li>
+                                  <li>
+                                    <div class="couple">
+                                      <div class="card" onclick="this.classList.toggle('active')">
+                                        <img src="https://placehold.co/190x220/0b1120/475569?text=G9+Principal" alt="G9 Principal">
+                                        <div class="name-bar">Bisavô G9 Principal</div>
+                                      </div>
+                                      <div class="card" onclick="this.classList.toggle('active')">
+                                        <img src="https://placehold.co/190x220/0b1120/475569?text=Esposa" alt="Esposa">
+                                        <div class="name-bar">Bisavó G9</div>
+                                      </div>
+                                    </div>
+                                    <ul>
+                                      <!-- KENJI + EMI branch -->
+                                      <li>
+                                        <div class="couple">
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=Kenji" alt="Kenji">
+                                            <div class="name-bar">Kenji (Avô Sayuri G10)</div>
+                                          </div>
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=Emi" alt="Emi">
+                                            <div class="name-bar">Emi (Avó Sayuri G10)</div>
+                                          </div>
+                                        </div>
+                                        <ul>
+                                          <li>
+                                            <div class="card main-char" onclick="this.classList.toggle('active')">
+                                              <img src="https://i.imgur.com/2DtOTgf.png" alt="Sayuri">
+                                              <div class="slide-menu">
+                                                <p><span class="label">Nascimento</span><span class="value">22/10/1972</span></p>
+                                                <p><span class="label">Status</span><span class="value">Presente</span></p>
+                                                <p><span class="label">Técnica Inata</span><span class="value">Manipulação Espacial</span></p>
+                                              </div>
+                                              <div class="name-bar">Sayuri G11</div>
+                                            </div>
+                                          </li>
+                                          <li>
+                                            <div class="card main-char" onclick="this.classList.toggle('active')">
+                                              <img src="https://i.imgur.com/MXZ3EWX.jpeg" alt="Ayaka">
+                                              <div class="slide-menu">
+                                                <p><span class="label">Nascimento</span><span class="value">10/05/1978</span></p>
+                                                <p><span class="label">Status</span><span class="value">Presente</span></p>
+                                                <p><span class="label">Técnica Inata</span><span class="value">Barreira Inquebrável</span></p>
+                                              </div>
+                                              <div class="name-bar">Ayaka G11</div>
+                                            </div>
+                                          </li>
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Pai" alt="Pai">
+                                                <div class="name-bar">Pai G11 de Sayuri</div>
+                                              </div>
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Mae" alt="Mãe">
+                                                <div class="name-bar">Mãe G11 de Sayuri</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li><div class="card"><div class="name-bar">Sem Registros G12</div></div></li>
+                                              <li><div class="card"><div class="name-bar">Sem Registros G12</div></div></li>
+                                            </ul>
+                                          </li>
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Daiki" alt="Daiki">
+                                                <div class="name-bar">Daiki (G11 Central)</div>
+                                              </div>
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Hana" alt="Hana">
+                                                <div class="name-bar">Hana</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li><div class="card"><div class="name-bar">Membro Ramo G12</div></div></li>
+                                              <li><div class="card"><div class="name-bar">Membro Ramo G12</div></div></li>
+                                            </ul>
+                                          </li>
+                                        </ul>
+                                      </li>
+
+                                      <!-- AVÔ CENTRAL branch -->
+                                      <li>
+                                        <div class="couple">
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=Avô" alt="Avô">
+                                            <div class="name-bar">Avô Central G10</div>
+                                          </div>
+                                          <div class="card" onclick="this.classList.toggle('active')">
+                                            <img src="https://placehold.co/190x220/0b1120/475569?text=Avó" alt="Avó">
+                                            <div class="name-bar">Avó Central G10</div>
+                                          </div>
+                                        </div>
+                                        <ul>
+                                          <!-- Pai Akihito -->
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Pai" alt="Pai Akihito">
+                                                <div class="name-bar">Pai de Akihito G11</div>
+                                              </div>
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Mae" alt="Mãe Akihito">
+                                                <div class="name-bar">Mãe de Akihito G11</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li>
+                                                <div class="card main-char" onclick="this.classList.toggle('active')">
+                                                  <img src="https://i.imgur.com/wnYYDJf.png" alt="Akihito">
+                                                  <div class="slide-menu">
+                                                    <p><span class="label">Nascimento</span><span class="value">15/04/1945</span></p>
+                                                    <p><span class="label">Falecimento</span><span class="value">12/08/2010</span></p>
+                                                    <p><span class="label">Técnica Inata</span><span class="value">Expansão das Sombras</span></p>
+                                                  </div>
+                                                  <div class="name-bar">Akihito G12</div>
+                                                </div>
+                                              </li>
+                                            </ul>
+                                          </li>
+                                          <!-- Pai Aizen -->
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Pai" alt="Pai Aizen">
+                                                <div class="name-bar">Pai de Aizen G11</div>
+                                              </div>
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Mae" alt="Mãe Aizen">
+                                                <div class="name-bar">Mãe de Aizen G11</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li>
+                                                <div class="card main-char" onclick="this.classList.toggle('active')">
+                                                  <img src="https://i.imgur.com/zrMgETK.jpeg" alt="Aizen">
+                                                  <div class="slide-menu">
+                                                    <p><span class="label">Nascimento</span><span class="value">14/06/1975</span></p>
+                                                    <p><span class="label">Falecimento</span><span class="value">30/11/2005</span></p>
+                                                    <p><span class="label">Técnica Inata</span><span class="value">Ilusão Perfeita</span></p>
+                                                  </div>
+                                                  <div class="name-bar">Aizen G12</div>
+                                                </div>
+                                              </li>
+                                            </ul>
+                                          </li>
+                                          <!-- Takeshi + Shizuka -->
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Takeshi" alt="Takeshi">
+                                                <div class="name-bar">Takeshi (Pai G11)</div>
+                                              </div>
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Shizuka" alt="Shizuka">
+                                                <div class="name-bar">Shizuka (Mãe G11)</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li>
+                                                <div class="card main-char" onclick="this.classList.toggle('active')">
+                                                  <img src="https://i.imgur.com/Zu3b24f.jpeg" alt="Haruki">
+                                                  <div class="slide-menu">
+                                                    <p><span class="label">Nascimento</span><span class="value">05/01/2000</span></p>
+                                                    <p><span class="label">Status</span><span class="value">Presente</span></p>
+                                                    <p><span class="label">Técnica Inata</span><span class="value">Fogo Fátuo</span></p>
+                                                  </div>
+                                                  <div class="name-bar">Haruki G12</div>
+                                                </div>
+                                              </li>
+                                              <li>
+                                                <div class="card main-char" onclick="this.classList.toggle('active')">
+                                                  <img src="https://i.pinimg.com/736x/ee/be/4b/eebe4bcc1cf92ad233334ade63fc4f0b.jpg" alt="Takeru Gojo">
+                                                  <div class="slide-menu">
+                                                    <p><span class="label">Nascimento</span><span class="value">12/03/1998</span></p>
+                                                    <p><span class="label">Status</span><span class="value">Presente</span></p>
+                                                    <p><span class="label">Técnica Inata</span><span class="value">Ilimitado</span></p>
+                                                  </div>
+                                                  <div class="name-bar">Takeru Gojo G12</div>
+                                                </div>
+                                              </li>
+                                            </ul>
+                                          </li>
+                                          <!-- Kousuke + Hiromi -->
+                                          <li>
+                                            <div class="couple">
+                                              <div class="card" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/475569?text=Kousuke" alt="Kousuke">
+                                                <div class="slide-menu">
+                                                  <p><span class="label">Status</span><span class="value">Casado com prima Hiromi</span></p>
+                                                </div>
+                                                <div class="name-bar">Kousuke (Pai G11)</div>
+                                              </div>
+                                              <div class="card cousin-bride" onclick="this.classList.toggle('active')">
+                                                <img src="https://placehold.co/190x220/0b1120/0c2341?text=Hiromi" alt="Hiromi">
+                                                <div class="slide-menu">
+                                                  <p><span class="label">Origem</span><span class="value">Ramo Norte — Prima de Kousuke G12</span></p>
+                                                </div>
+                                                <div class="name-bar">Hiromi (Mãe G12*)</div>
+                                              </div>
+                                            </div>
+                                            <ul>
+                                              <li>
+                                                <div class="card main-char" onclick="this.classList.toggle('active')">
+                                                  <img src="https://i.imgur.com/XaxE13I.jpeg" alt="Hiroto">
+                                                  <div class="slide-menu">
+                                                    <p><span class="label">Nascimento</span><span class="value">18/09/2003</span></p>
+                                                    <p><span class="label">Status</span><span class="value">Presente</span></p>
+                                                    <p><span class="label">Técnica Inata</span><span class="value">Corte Dimensional</span></p>
+                                                  </div>
+                                                  <div class="name-bar">Hiroto G12</div>
+                                                </div>
+                                              </li>
+                                            </ul>
+                                          </li>
+                                        </ul>
+                                      </li>
+                                    </ul>
+                                  </li>
+                                </ul>
+                              </li>
+                            </ul>
+                          </li>
+                        </ul>
+                      </li>
+
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+
+    </ul>
+  </li>
+</ul>
+</div>
+</div>
+
+<script>
+    const scrollContainer = document.getElementById('scroll-container');
+    let isDown = false, startX, startY, scrollLeft, scrollTop;
+
+    scrollContainer.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.card')) return;
+        isDown = true;
+        startX = e.pageX - scrollContainer.offsetLeft;
+        startY = e.pageY - scrollContainer.offsetTop;
+        scrollLeft = scrollContainer.scrollLeft;
+        scrollTop = scrollContainer.scrollTop;
+    });
+
+    scrollContainer.addEventListener('mouseleave', () => { isDown = false; });
+    scrollContainer.addEventListener('mouseup', () => { isDown = false; });
+
+    scrollContainer.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - scrollContainer.offsetLeft;
+        const y = e.pageY - scrollContainer.offsetTop;
+        scrollContainer.scrollLeft = scrollLeft - (x - startX) * 1.5;
+        scrollContainer.scrollTop = scrollTop - (y - startY) * 1.5;
+    });
+</script>
+</body>
+</html>
